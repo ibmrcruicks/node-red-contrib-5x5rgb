@@ -1,10 +1,11 @@
+var state = false;
 
 module.exports = function(RED) {
     "use strict"
 
     function rgb5x5NodeOut(n) {
         RED.nodes.createNode(this,n);
-        this.buttonState = -1;
+
         this.bus = n.bus;
         this.address = n.address;
         this.command = n.command;
@@ -24,6 +25,10 @@ module.exports = function(RED) {
                             if (node.command === "clear") {
                               node.matrix.clear();
                             }
+                            if (node.command === "setPixel") {
+                            }
+                            if (node.command === "displayMatrix") {
+                            }            
                             if (node.command === "msg") {
                               node.warn(`checking contents of ${msg.payload}`);
                             }

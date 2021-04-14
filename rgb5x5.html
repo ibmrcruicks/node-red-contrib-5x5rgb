@@ -1,24 +1,24 @@
 <script type="text/x-red" data-template-name="rgb5x5">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag">Name</i></label>
         <input type="text" id="node-input-name" placeholder="Name">
     </div>
     <div class="form-row">
-        <label for="node-input-bus"><i class="fa fa-map-bus"></i> Bus</label>
+        <label for="node-input-bus"><i class="fa fa-map-bus">Bus</i></label>
         <select type="text" id="node-input-bus">
             <option value="1" selected="selected">1</option>
             <option value="0">0</option>
         </select>
     </div>
     <div class="form-row">
-        <label for="node-input-address"><i class="fa fa-exchange"></i> Address</label>
+        <label for="node-input-address"><i class="fa fa-exchange">Address</i></label>
         <select type="text" id="node-input-address">
             <option value="0x74" selected="selected">0x74</option>
             <option value="0x77">0x77</option>
         </select>
     </div>
     <div class="form-row">
-        <label for="node-input-command"><i class="fa fa-refresh"></i>Command</label>
+        <label for="node-input-command"><i class="fa fa-pencil">Command</i></label>
         <select type="text" id="node-input-command">
             <option value="msg">msg.payload</option>
             <option value="on">On</option>
@@ -29,14 +29,69 @@
         </select>
     </div>
         <div class="form-row">
-        <label for="node-input-color"><i class="fa fa-refresh"></i>Color</label>
+        <label for="node-input-color"><i class="fa fa-paint-brush">Color</i></label>
         <input type="color" id="node-input-color" value="#ffff00">
+    </div>
+    <div class="form-row">
+        <label for="node-input-across"><i class="fa fa-hand-o-right">X - across</i></label>
+        <select type="text" id="node-input-across">
+            <option value="0" selected="selected">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-down"><i class="fa fa-hand-o-down">Y - down</i></label>
+        <select type="text" id="node-input-down">
+            <option value="0" selected="selected">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+        </select>
     </div>
 </script>
 
 <script type="text/x-red" data-help-name="rgb5x5">
     <h2>Pimoroni RGB5x5 Matrix - I2C interface</h2>
     <br>
+	A driver to enable easy output to and control of the <a target=_blank href="https://shop.pimoroni.com/products/5x5-rgb-matrix-breakout">Pimoroni 5x5 RGB LED breakout module</a>,
+	based on the <a target=_blank href="https://www.issi.com/WW/pdf/31FL3731.pdf">ISSI IS31FL3731 LED matrix driver chip</a>.
+<p>
+	The node is configured with the I2C bus number, and the address of the breakout module (either 0x74, or 0x77 depending on the state of the physical address selection on the module itself).
+<p>
+Colour control of pixels uses any of either form of hex representation of RGB colour (0xFF00FF or #FF00FF for magenta) or the name of a colour in the <a target=_blank href="https://cheerlights.com/cheerlights-api">Cheerlights set</a>. 
+<p>
+	</ul>
+	There are 3 control commands:
+	<strong>
+	<ul>
+	<li>on
+	<li>off
+	<li>clear
+	</ul>
+	</strong>
+	and 2 display comands:
+	<dl>
+	<dt>pixel<dd>will set an individual pixel to a specific colour via <code>msg.matrix</code>: this must be a JSON object  with 3 keys: 
+	<ul>
+	<li>x (0-4)
+	<li>y (0-4)
+	<li>color as defined above 
+	</ul>
+	</dd>
+	<dt>display<dd>will set the entire matrix to one colour, or 25 individual colours; in this case, <code>msg.matrix</code> must be an array of either one color value ( ["magenta"], for example), or 25 elements, each of which being a valid colour
+	</dd>
+	</dl>
+<p>
+	If set in the node configuration, the <code>display</code> with fill the matrix with the configured colour.
+<p>
+	Generally, the node is intended to be used by setting the command via <code>msg.payload</code> and the associated colour(s) via <code>msg.matrix</code>
+	
+
+	
 </script>
 
 
@@ -55,16 +110,25 @@
                 value: '0x74',
                 required: true
             },
-            commmand: {
+            command: {
                 value: 'msg',
                 required: true
-            }
+            },
+	    across: {
+		value: 0
+	    },
+	    down: {
+		value: 0
+	    },
+	    color: {
+		value: "#ffff00"
+	    }
         },
         color: '#50aa66',
         paletteLabel: 'RGB5x5',
-        inputs: 0,
-        outputs: 1,
-        icon: 'arrow-in.png',
+        inputs: 1,
+        outputs: 0,
+        icon: 'arrow-out.png',
         label: function(){
             return this.name || 'RGB5x5';
         }

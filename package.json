@@ -1,0 +1,29 @@
+{
+  "name": "node-red-contrib-5x5rgb",
+  "version": "0.0.1",
+  "description": "A node for the Pimoroni RGB 5x5 LED matric Breakout board",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibmrcruicks/node-red-contrib-5x5rgb-rpi.git"
+  },
+  "keywords": [
+    "node-red",
+    "raspi",
+    "rgb5x5",
+    "31FL3731"
+  ],
+  "dependencies": {
+    "i2c-bus": "^5.2.0"
+  },
+  "node-red": {
+    "nodes": {
+      "rgb5x5": "rgb5x5.js"
+    }
+  },
+  "author": "Ross Cruickshank <ross@vnet.ibm.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ibmrcruicks/node-red-contrib-5x5rgb-rpi/issues"
+  },
+  "homepage": "https://github.com/ibmrcruicks/node-red-contrib-5x5rgb-rpi#readme"
+}

@@ -29,22 +29,27 @@ const $ENABLE_OFFSET = 0x00
 const $BLINK_OFFSET = 0x12
 const $COLOR_OFFSET = 0x24
 
-module.exports = {
-	init: Initialize,
-	on: DisplayOn,
-	off: DisplayOff,
-	clear: DisplayClear,
-	setPixel: SetPixelColor,
-	showMatrix: ShowMatrix,
-};
-
 const $WIDTH = 5;
 const $HEIGHT = 5;
 
-var I2C_BUS = 0;
-var I2C_ADDRESS = 0;
+let wire;
+let initialized
+let I2C_BUS;
+let I2C_ADDRESS;
 
-function SetGamma(color)
+class RGB5x5 {
+
+constructor(device, i2cAddress) {
+  if (typeof(device) == 'undefined') {
+     device = 1;
+  }
+  initialized = false;
+  I2C_BUS = parseInt(device);
+  I2C_ADDRESS = parseInt(i2cAddress);
+  wire = i2c.openSync(I2C_BUS);
+} 
+
+_SetGamma(color)
 { 
   const $DEFAULT_GAMMA_TABLE = [
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -66,7 +71,32 @@ function SetGamma(color)
   ];
   return $DEFAULT_GAMMA_TABLE[color]; 
 }
-function GetPixelRedOffset(n)
+_Cheerlights(name)
+{ 
+  const $CHEERLIGHTS_TABLE = {
+	"red":"0xFF0000",
+	"green":"0x00FF00",
+	"blue":"0x0000FF",
+	"cyan":"0x00FFFF",
+	"white":"0xFFFFFF",
+	"warmwhite":"0xFDF5E6",
+	"oldlace":"0xFDF5E6",
+	"purple":"0x800080",
+	"magenta":"0xFF00FF",
+	"pink":"0xFF69B4",
+	"yellow":"0xFFFF00",
+	"amber":"0xFFD200",
+	"orange":"0xFFA500",
+	"black":"0x000000",
+	"off":"0x000000"
+	}
+	if(typeof name === "string" && name.toLowerCase() in $CHEERLIGHTS_TABLE) {
+		return($CHEERLIGHTS_TABLE[name.toLowerCase()])
+	}
+console.log("cheerlights name =", color);
+	return("#BADDAD")
+}
+_GetPixelRedOffset(n)
 {
 	const $RED = [ 
     118, 117, 116, 115, 114, 
@@ -78,7 +108,7 @@ function GetPixelRedOffset(n)
     ];
 	return $RED[n];
 }
-function GetPixelGreenOffset(n)
+_GetPixelGreenOffset(n)
 {
 	const $GREEN = [ 
     69,  68,  84,  83,  82,
@@ -90,7 +120,7 @@ function GetPixelGreenOffset(n)
     ];
 	return $GREEN[n];
 }
-function GetPixelBlueOffset(n)
+_GetPixelBlueOffset(n)
 {
 	const $BLUE = [ 
      85, 101, 100,  99,  98,
@@ -103,79 +133,93 @@ function GetPixelBlueOffset(n)
 	return $BLUE[n];
 }
 
-function SetPixelRGB(x, y, color)
+_SetPixelRGB(x, y, color)
 {
-	var pixel = (y*$WIDTH) + x;
-  var address;
+	var pixel = (parseInt(y) * $WIDTH) + parseInt(x);
+	var address;
+	const regexhex = /^0[Xx][A-Fa-f0-9]{6}$/;
+	const regexrgb = /^#[A-Fa-f0-9]{6}$/;
+	if ((typeof color === "string") && regexrgb.test(color)){
+		color = parseInt("0x"+color.split('#')[1]);
+	}
+	if ((typeof color === "string") && !regexhex.test(color)){
+		color = this._Cheerlights(color);
+	}
   
-	address = $COLOR_OFFSET + GetPixelRedOffset(pixel);
-	I2C_BUS.writeByteSync(I2C_ADDRESS, address, SetGamma((color & 0xff0000) >> 16));
-	address = $COLOR_OFFSET + GetPixelGreenOffset(pixel);
-	I2C_BUS.writeByteSync(I2C_ADDRESS, address, SetGamma((color & 0x00ff00) >> 8));
-	address = $COLOR_OFFSET + GetPixelBlueOffset(pixel);
-	I2C_BUS.writeByteSync(I2C_ADDRESS, address, SetGamma((color & 0x0000ff)));
+	address = $COLOR_OFFSET + this._GetPixelRedOffset(pixel);
+	wire.writeByteSync(I2C_ADDRESS, address, this._SetGamma((color & 0xff0000) >> 16));
+	address = $COLOR_OFFSET + this._GetPixelGreenOffset(pixel);
+	wire.writeByteSync(I2C_ADDRESS, address, this._SetGamma((color & 0x00ff00) >> 8));
+	address = $COLOR_OFFSET + this._GetPixelBlueOffset(pixel);
+	wire.writeByteSync(I2C_ADDRESS, address, this._SetGamma((color & 0x0000ff)));
 }
 
-function SetPixelColor(x, y, color)
+SetPixelColor(x, y, color)
 {
-	if (x > $WIDTH || y > $HEIGHT) return;
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE); 
-	SetPixelRGB(x, y, color);
+	if (parseInt(x) > $WIDTH || parseInt(y) > $HEIGHT) return;
+	wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE); 
+	this._SetPixelRGB(x, y, color);
+//console.log(`Pixel ${x},${y} set to ${color}`);
 }
 
-function Initialize(bus, address)
+DisplayOn()
 {
-  I2C_BUS = bus;
-	I2C_ADDRESS = address;
+	wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); 
+	wire.writeByteSync(I2C_ADDRESS, $SHUTDOWN_REGISTER, 0b00000001); // Power On ("Normal Operation")
+}
+DisplayOff()
+{
+	wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); 
+	wire.writeByteSync(I2C_ADDRESS, $SHUTDOWN_REGISTER, 0b00000000); // Power Off ("Shutdown Mode")
+}
+DisplayClear()
+{
+	wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE);
+	for (var n = 0x24; n<=0xb3; n++) wire.writeByteSync(I2C_ADDRESS, n, 0x00); // Dim all LEDs first
+	for (var n = 0x00; n<=0x11; n++) wire.writeByteSync(I2C_ADDRESS, n, 0xff); // Enable all LEDS 
+}
+
+Initialize()
+{
+//	if(this.initialized) return;
   
-	DisplayOff();
+	this.DisplayOff();
   
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); // Point to Function (Control) Register
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x00, 0b00000000); // Configuration Register -> Picture Mode
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x01, 0b00000000); // Picture Display Register -> Display Frame 1
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x02, 0b00000000); // Auto Play Control Register 1 -> Defaults/NA
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x03, 0b00000000); // Auto Play Control Register 2 -> Defaults/NA
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x05, 0b00000000); // Display Option Register -> Defaults
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x06, 0b00000000); // Audio Synchronization Register -> Defaults (audio synchronization disabled)
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x08, 0b00000000); // Breath Control Register 1 -> Defaults
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x09, 0b00000000); // Breath Control Register 2 -> Defaults
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x0b, 0b00000000); // AGC Control Register -> Defaults/NA
-	I2C_BUS.writeByteSync(I2C_ADDRESS, 0x0c, 0b00000000); // Audio ADC Rate Register -> Defaults/NA
+	wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); // Point to Function (Control) Register
+	wire.writeByteSync(I2C_ADDRESS, 0x00, 0b00000000); // Configuration Register -> Picture Mode
+	wire.writeByteSync(I2C_ADDRESS, 0x01, 0b00000000); // Picture Display Register -> Display Frame 1
+	wire.writeByteSync(I2C_ADDRESS, 0x02, 0b00000000); // Auto Play Control Register 1 -> Defaults/NA
+	wire.writeByteSync(I2C_ADDRESS, 0x03, 0b00000000); // Auto Play Control Register 2 -> Defaults/NA
+	wire.writeByteSync(I2C_ADDRESS, 0x05, 0b00000000); // Display Option Register -> Defaults
+	wire.writeByteSync(I2C_ADDRESS, 0x06, 0b00000000); // Audio Synchronization Register -> Audio sync off
+	wire.writeByteSync(I2C_ADDRESS, 0x08, 0b00000000); // Breath Control Register 1 -> Defaults
+	wire.writeByteSync(I2C_ADDRESS, 0x09, 0b00000000); // Breath Control Register 2 -> Defaults
+	wire.writeByteSync(I2C_ADDRESS, 0x0b, 0b00000000); // AGC Control Register -> Defaults/NA
+	wire.writeByteSync(I2C_ADDRESS, 0x0c, 0b00000000); // Audio ADC Rate Register -> Defaults/NA
   
-  DisplayClear();
-	DisplayOn();
+  	this.DisplayClear();
+	this.DisplayOn();
+
+	this.initialized = true;
+	console.log("RGB5x5 matrix initialized");
 }
 
-function DisplayOn()
+ShowMatrix(input)
 {
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); 
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $SHUTDOWN_REGISTER, 0b00000001); // Power On ("Normal Operation")
-}
-function DisplayOff()
-{
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_CONFIG); 
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $SHUTDOWN_REGISTER, 0b00000000); // Power Off ("Shutdown Mode")
-}
+  var fill = true;
 
-function DisplayClear()
-{
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE);
-	for (n = 0x24; n<=0xb3; n++) I2C_BUS.writeByteSync(I2C_ADDRESS, n, 0x00); // Dim all LEDs first
-	for (n = 0x00; n<=0x11; n++) I2C_BUS.writeByteSync(I2C_ADDRESS, n, 0xff); // Enable all LEDS 
-}
+  if (Array.isArray(input) && (input.length == $WIDTH*$HEIGHT)) fill = false;
 
-function ShowMatrix(input)
-{
-	var fill = true;
-
-	if (Array.isArray(input) && (input.length == $WIDTH*$HEIGHT)) fill = false;
-
-	I2C_BUS.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE);
+  wire.writeByteSync(I2C_ADDRESS, $FRAME_ADDRESS, $FRAME_PICTURE);
   for (var y=0; y<$HEIGHT; y++)
 	{
 		for (var x=0; x<$WIDTH; x++)
 		{
-			fill ? SetPixelRGB(x, y, input[0]) : SetPixelRGB(x, y, input[(y*$WIDTH) + x]);	
+			fill ? this._SetPixelRGB(x, y, input[0]) : this._SetPixelRGB(x, y, input[(y*$WIDTH) + x]);	
 		}
 	}
 }
+
+};
+
+module.exports = RGB5x5;

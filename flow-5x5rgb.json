@@ -1,0 +1,1 @@
+[{"id":"c753f516.da54e8","type":"inject","z":"2dc5176.c84abe8","name":"display - fill - red","props":[{"p":"payload"},{"p":"matrix","v":"[\"red\"]","vt":"json"}],"repeat":"1","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"display","payloadType":"str","x":210,"y":160,"wires":[["bb101597.afe3c8"]]}]

@@ -1,5 +1,5 @@
 {
-  "name": "node-red-contrib-5x5rgb",
+  "name": "node-red-contrib-5x5rgb-rpi",
   "version": "0.0.1",
   "description": "A node for the Pimoroni RGB 5x5 LED matric Breakout board",
   "repository": {
